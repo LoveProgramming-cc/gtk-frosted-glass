@@ -71,7 +71,7 @@ overlay.add_glass(pill, radius=18, blur=22)
 
 | | CSS `backdrop-filter` | `GlassOverlay`（本仓库） |
 |---|---|---|
-| 需要 | GTK 4.22 或更新 | GTK 4（只用 4.0 就有的 API；只在 4.22 上测试过） |
+| 需要 | GTK 4.22 或更新 | GTK 4；在 4.6 到 4.22 上测试过，见[测试过的版本](#测试过的版本) |
 | 代码 | 一行 CSS | 约 90 行的 Python 类，复制到应用里 |
 | 适用范围 | 任何部件 | 只有用 `add_glass` 加进 overlay 的部件 |
 | 模糊的内容 | 部件背后画出的一切 | 只有 overlay 的主子部件，不包括其他栏 |
@@ -193,6 +193,30 @@ overlay.add_glass(bar, radius=0, blur=38,
 | 染色 | 弹出层颜色，72 % | 视图颜色，74 % |
 | 效果 | 内容柔化，但仍能辨认 | 内容变成柔和的色块 |
 
+## 测试过的版本
+
+`python3 test.py` 画出一个窗口：一条清晰的黑白边界，上面有一条玻璃栏和一个玻璃药丸，然后
+测量——玻璃下面的边界必须是模糊的，旁边必须是清晰的。它只用 GTK，不用 libadwaita。在下列
+版本上通过：
+
+| GTK | 来自 | 渲染器 | 结果 |
+|---|---|---|---|
+| 4.6.9 | Ubuntu 22.04 | GL | 通过 |
+| 4.8.3 | Debian 12 | GL | 通过 |
+| 4.14.5 | Ubuntu 24.04 | NGL | 通过 |
+| 4.18.5 | Ubuntu 软件源 | GL | 通过 |
+| 4.20.1 | Ubuntu 软件源 | Vulkan | 通过 |
+| 4.22.4 | Ubuntu 26.04 | Vulkan | 通过 |
+
+每个版本在 `blur=22` 时都得到同样的 26 px 边界。除 4.22 外，这些版本都不接受 CSS 里的
+`backdrop-filter`（“No property named”），所以在它们上面要得到磨砂玻璃，就得用
+`GlassOverlay`。
+
+测试方式：从各发行版的软件包里取出对应版本的 GTK 库，在同一台机器（Ubuntu 26.04，Wayland）
+上加载，用的是这台机器自己的 GLib、Pango、PyGObject 和显卡驱动。没有在那些旧发行版本身上
+运行，也没有在 X11 上、或在比 4.6 更旧的 GTK 上运行。`demo.py` 需要 libadwaita 和
+`load_from_string`（GTK 4.12），只在 4.22 上运行过。
+
 ## 局限
 
 - **弹出层和菜单仍然不透明。** 它们是单独的表面，overlay 画不到它们背后的内容。
@@ -203,7 +227,6 @@ overlay.add_glass(bar, radius=0, blur=38,
 - **`lookup_color` 在 GTK 4 中已弃用。** 目前仍可用；替代办法是从你自己的调色板把颜色
   传进来。
 - **窗口玻璃**（窗口背后的桌面被模糊）是另一回事，GNOME 上的 GTK 应用做不到。
-- 只在 GTK 4.22 和 libadwaita 1.9 上测试过。
 
 ## 不用截图工具来检查
 

@@ -71,7 +71,7 @@ known: Ubuntu 24.04 has GTK 4.14, Debian 13 has 4.18, GNOME 49 has 4.20.
 
 | | CSS `backdrop-filter` | `GlassOverlay` (this repository) |
 |---|---|---|
-| Needs | GTK 4.22 or later | GTK 4 (uses only API from 4.0; tested on 4.22 only) |
+| Needs | GTK 4.22 or later | GTK 4; tested on 4.6 to 4.22, see [Tested versions](#tested-versions) |
 | Code | one CSS line | a Python class of about 90 lines, copied into the app |
 | Where it works | on any widget | only on widgets added to the overlay with `add_glass` |
 | What is blurred | everything drawn behind the widget | only the overlay's main child, not other bars |
@@ -199,6 +199,31 @@ which is why it is done this way.)
 | Tint | popover colour at 72 % | view colour at 74 % |
 | Result | content stays recognisable, softened | content becomes soft patches of colour |
 
+## Tested versions
+
+`python3 test.py` draws a window with a sharp black/white edge under a glass bar and a glass
+pill, and measures it: the edge has to be blurred under the glass and sharp beside it. It uses
+GTK alone, without libadwaita. It passes on:
+
+| GTK | From | Renderer | Result |
+|---|---|---|---|
+| 4.6.9 | Ubuntu 22.04 | GL | passes |
+| 4.8.3 | Debian 12 | GL | passes |
+| 4.14.5 | Ubuntu 24.04 | NGL | passes |
+| 4.18.5 | Ubuntu archive | GL | passes |
+| 4.20.1 | Ubuntu archive | Vulkan | passes |
+| 4.22.4 | Ubuntu 26.04 | Vulkan | passes |
+
+Each gave the same 26 px edge for `blur=22`. All of these except 4.22 reject
+`backdrop-filter` in CSS ("No property named"), so `GlassOverlay` is the way to get frosted
+glass there.
+
+How it was tested: the GTK libraries of each version were taken from that distribution's
+packages and loaded on one machine (Ubuntu 26.04, Wayland), with that machine's own GLib,
+Pango, PyGObject and graphics driver. It was not run on the old distributions themselves, nor
+on X11, nor with GTK older than 4.6. `demo.py` needs libadwaita and `load_from_string`
+(GTK 4.12), and was run on 4.22 only.
+
 ## Limits
 
 - **Popovers and menus stay opaque.** They are separate surfaces, so the overlay cannot
@@ -212,7 +237,6 @@ which is why it is done this way.)
   colour in from your own palette.
 - **Window glass** (the desktop blurred behind the window) is a different thing and is not
   available to GTK apps on GNOME.
-- Tested on GTK 4.22 and libadwaita 1.9 only.
 
 ## Checking it without a screenshot tool
 

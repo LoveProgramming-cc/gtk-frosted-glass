@@ -48,6 +48,47 @@ overlay.add_glass(pill, radius=18, blur=22)
 | `on_height` | Called with the bar's height when it changes; see problem 4 below. |
 | `backing` (on the overlay) | The theme colour the view under the glass is filled with; see problem 2. |
 
+## Do you need this? GTK 4.22 has `backdrop-filter`
+
+**If your app can require GTK 4.22 or later, you do not need `glass.py`.** Since GTK 4.22
+(March 2026; first in the development release 4.21.2), GTK's CSS supports `backdrop-filter`,
+and one line does the same thing:
+
+```css
+.pill {
+  background: alpha(@popover_bg_color, 0.72);
+  backdrop-filter: blur(11px);
+  border-radius: 18px;
+}
+```
+
+`python3 demo.py --native` runs the demo that way, with a plain `Gtk.Overlay`; on GTK 4.22 the
+two look the same. (There is no widget called `BlurOverlay` in GTK 4.22 or libadwaita 1.9;
+the built-in way is this CSS property.)
+
+`GlassOverlay` is for apps that also have to run on older GTK 4, where the property is not
+known: Ubuntu 24.04 has GTK 4.14, Debian 13 has 4.18, GNOME 49 has 4.20.
+
+| | CSS `backdrop-filter` | `GlassOverlay` (this repository) |
+|---|---|---|
+| Needs | GTK 4.22 or later | GTK 4 (uses only API from 4.0; tested on 4.22 only) |
+| Code | one CSS line | a Python class of about 90 lines, copied into the app |
+| Where it works | on any widget | only on widgets added to the overlay with `add_glass` |
+| What is blurred | everything drawn behind the widget | only the overlay's main child, not other bars |
+| Corner radius | follows `border-radius` | written twice, in the CSS and in `add_glass` |
+| Opaque view under the glass (problem 1) | not needed in the demo | needed |
+| Colour past the edge (problem 2) | not needed | `backing=` |
+| Content under a top bar (problem 4) | still yours to arrange | still yours to arrange; `on_height=` helps |
+| Blur number | `blur(N px)`: N is the standard deviation | `blur=R`: spreads like CSS `blur(R/2)` |
+| Other languages | any (it is CSS) | Python; the same calls exist in C, Rust, Vala and JavaScript |
+
+On the numbers: measured on GTK 4.22, CSS `blur(20px)` turns a sharp edge into a 48 px
+transition, and `blur=22` here into 26 px. So CSS `blur(11px)` matches `blur=22`, and
+`blur(19px)` matches `blur=38`.
+
+An app can also choose at run time: use the CSS when
+`Gtk.get_minor_version() >= 22`, and `GlassOverlay` otherwise.
+
 ## What it is, and what it is not
 
 There are two things people call frosted glass:
@@ -57,9 +98,9 @@ There are two things people call frosted glass:
 | **In-app glass** (this repository) | the app's own content under a bar | the app, with GTK | GNOME, KDE, any desktop |
 | **Window glass** | the desktop and other windows behind the app | the compositor | only compositors with a blur protocol (KWin); not GNOME Shell |
 
-GTK's CSS has no `backdrop-filter`, so a translucent background alone only gives a
-see-through bar, not a frosted one. The blur has to be drawn by hand. GTK's scene graph (GSK)
-has a blur node, and that is all that is needed.
+Before GTK 4.22, GTK's CSS has no `backdrop-filter`, so a translucent background alone only
+gives a see-through bar, not a frosted one. The blur has to be drawn by hand. GTK's scene graph
+(GSK) has a blur node, and that is all that is needed.
 
 ## How it works
 
@@ -94,6 +135,7 @@ def do_snapshot(self, snap):
 ## Four things that go wrong
 
 These all happened while writing Inkpad's version. `glass.py` and `demo.py` handle each.
+Problems 1 to 3 belong to `GlassOverlay`; problem 4 is the same with CSS `backdrop-filter`.
 
 ### 1. The blurred layer has holes, so it looks like a flat grey box
 
@@ -190,5 +232,9 @@ Scroll some content under the bar first: glass with nothing behind it cannot be 
 
 Copyright © 2026 the Inkpad authors.
 
-Free software under the [GNU General Public License, version 3](LICENSE) or (at your option)
-any later version, the same licence as Inkpad, which this code comes from.
+Released under the [MIT licence](LICENSE): use it in any project, free or proprietary, as long
+as the copyright and licence notice stay with it.
+
+The code comes from [Inkpad](https://github.com/LoveProgramming-cc/Inkpad-gnome), which as a
+whole is under the GNU GPL, version 3 or later. Inkpad's licence makes an exception for its
+frosted glass (`inkpad/glass.py`): its authors also offer that part under the MIT licence, here.

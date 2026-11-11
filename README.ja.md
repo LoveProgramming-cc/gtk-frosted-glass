@@ -49,6 +49,47 @@ overlay.add_glass(pill, radius=18, blur=22)
 | `on_height` | バーの高さが変わったときに、その高さを引数として呼ばれます。下の問題 4 を参照。 |
 | `backing`（overlay 側） | ガラスの下のビューを塗っているテーマカラー。問題 2 を参照。 |
 
+## これは必要ですか？ GTK 4.22 には `backdrop-filter` があります
+
+**アプリが GTK 4.22 以降を必須にできるなら、`glass.py` は要りません。** GTK 4.22
+（2026 年 3 月。開発版では 4.21.2 から）以降、GTK の CSS は `backdrop-filter` に対応して
+おり、1 行で同じことができます：
+
+```css
+.pill {
+  background: alpha(@popover_bg_color, 0.72);
+  backdrop-filter: blur(11px);
+  border-radius: 18px;
+}
+```
+
+`python3 demo.py --native` は、ふつうの `Gtk.Overlay` を使ってデモをこの方法で動かします。
+GTK 4.22 では両者の見た目は同じです。（GTK 4.22 と libadwaita 1.9 に `BlurOverlay` という
+ウィジェットはありません。標準の方法はこの CSS プロパティです。）
+
+`GlassOverlay` は、このプロパティを知らない古い GTK 4 でも動かす必要があるアプリのための
+ものです。Ubuntu 24.04 は GTK 4.14、Debian 13 は 4.18、GNOME 49 は 4.20 です。
+
+| | CSS `backdrop-filter` | `GlassOverlay`（このリポジトリ） |
+|---|---|---|
+| 必要なもの | GTK 4.22 以降 | GTK 4（4.0 からある API だけを使用。確認は 4.22 のみ） |
+| コード | CSS 1 行 | 約 90 行の Python クラスをアプリにコピー |
+| 使える場所 | どのウィジェットでも | `add_glass` で overlay に追加したウィジェットだけ |
+| ぼかす対象 | そのウィジェットの背後に描かれたものすべて | overlay のメインの子だけ。他のバーは含まない |
+| 角の半径 | `border-radius` に従う | CSS と `add_glass` の 2 か所に書く |
+| ガラスの下のビューを不透明にする（問題 1） | デモでは不要 | 必要 |
+| 端の外側の色（問題 2） | 不要 | `backing=` |
+| 上部のバーの下に内容を入れる（問題 4） | 自分で配置する | 自分で配置する。`on_height=` が助けになる |
+| ぼかしの数値 | `blur(N px)`：N は標準偏差 | `blur=R`：CSS の `blur(R/2)` と同じ広がり |
+| 他の言語 | どの言語でも（CSS なので） | Python。同じ呼び出しは C、Rust、Vala、JavaScript にもある |
+
+数値について：GTK 4.22 で測ると、CSS の `blur(20px)` は鮮明な境界を 48 px の幅に広げ、
+ここでの `blur=22` は 26 px に広げます。したがって CSS の `blur(11px)` は `blur=22` に、
+`blur(19px)` は `blur=38` に相当します。
+
+実行時に選ぶこともできます。`Gtk.get_minor_version() >= 22` なら CSS を使い、そうでなければ
+`GlassOverlay` を使います。
+
 ## これは何で、何ではないか
 
 「すりガラス」と呼ばれるものは 2 種類あります：
@@ -58,7 +99,8 @@ overlay.add_glass(pill, radius=18, blur=22)
 | **アプリ内のガラス**（このリポジトリ） | バーの下にあるアプリ自身の内容 | アプリ自身（GTK で） | GNOME、KDE など、どのデスクトップでも |
 | **ウィンドウのガラス** | アプリの背後のデスクトップや他のウィンドウ | コンポジタ | ぼかし用プロトコルを持つコンポジタ（KWin）のみ。GNOME Shell では不可 |
 
-GTK の CSS には `backdrop-filter` がないため、半透明の背景だけでは透けるバーになるだけで、
+GTK 4.22 より前の GTK の CSS には `backdrop-filter` がないため、半透明の背景だけでは透ける
+バーになるだけで、
 すりガラスにはなりません。ぼかしは自分で描く必要があります。GTK のシーングラフ（GSK）には
 ぼかしノードがあり、必要なのはそれだけです。
 
@@ -95,7 +137,8 @@ def do_snapshot(self, snap):
 ## うまくいかない 4 つの点
 
 どれも Inkpad 版を書いているときに実際に起きたものです。`glass.py` と `demo.py` はすべてに
-対処しています。
+対処しています。問題 1〜3 は `GlassOverlay` に固有のもので、問題 4 は CSS の
+`backdrop-filter` でも同じです。
 
 ### 1. ぼかした層に穴があり、平らな灰色の箱に見える
 
@@ -190,6 +233,10 @@ texture.save_to_png('window.png')
 
 Copyright © 2026 Inkpad の作者。
 
-[GNU 一般公衆利用許諾書 バージョン 3](LICENSE)、または（あなたの選択により）それ以降の
-バージョンのもとで配布される自由ソフトウェアです。このコードのもとになった Inkpad と同じ
-ライセンスです。
+[MIT ライセンス](LICENSE)で公開しています。著作権表示とライセンス表示を残すかぎり、自由
+ソフトウェアでもプロプライエタリでも、どのプロジェクトでも使えます。
+
+このコードのもとは [Inkpad](https://github.com/LoveProgramming-cc/Inkpad-gnome) です。Inkpad
+全体は GNU GPL バージョン 3 またはそれ以降ですが、Inkpad のライセンスはすりガラスの部分
+（`inkpad/glass.py`）を例外としており、作者はその部分をここで MIT ライセンスでも提供して
+います。

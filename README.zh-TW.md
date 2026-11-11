@@ -48,6 +48,46 @@ overlay.add_glass(pill, radius=18, blur=22)
 | `on_height` | 列的高度改變時被呼叫，參數是高度；見下面的問題 4。 |
 | `backing`（在 overlay 上） | 玻璃下面的檢視所填滿的主題顏色；見問題 2。 |
 
+## 你需要它嗎？GTK 4.22 已有 `backdrop-filter`
+
+**如果你的應用程式可以要求 GTK 4.22 或更新版本，就不需要 `glass.py`。** 從 GTK 4.22
+（2026 年 3 月；最早出現在開發版 4.21.2）起，GTK 的 CSS 支援 `backdrop-filter`，一行就能
+做到同樣的事：
+
+```css
+.pill {
+  background: alpha(@popover_bg_color, 0.72);
+  backdrop-filter: blur(11px);
+  border-radius: 18px;
+}
+```
+
+`python3 demo.py --native` 用這種方式執行示範程式，用的是一般的 `Gtk.Overlay`；在 GTK 4.22
+上兩者看起來一樣。（GTK 4.22 和 libadwaita 1.9 裡沒有叫 `BlurOverlay` 的元件；內建的方法
+就是這個 CSS 屬性。）
+
+`GlassOverlay` 是給還要在舊版 GTK 4 上執行的應用程式用的，舊版不認得這個屬性：Ubuntu 24.04
+是 GTK 4.14，Debian 13 是 4.18，GNOME 49 是 4.20。
+
+| | CSS `backdrop-filter` | `GlassOverlay`（本儲存庫） |
+|---|---|---|
+| 需要 | GTK 4.22 或更新 | GTK 4（只用 4.0 就有的 API；只在 4.22 上測試過） |
+| 程式碼 | 一行 CSS | 約 90 行的 Python 類別，複製到應用程式裡 |
+| 適用範圍 | 任何元件 | 只有用 `add_glass` 加進 overlay 的元件 |
+| 模糊的內容 | 元件背後畫出的一切 | 只有 overlay 的主要子元件，不包括其他列 |
+| 圓角半徑 | 跟隨 `border-radius` | 寫兩次：CSS 裡和 `add_glass` 裡 |
+| 玻璃下的檢視要不透明（問題 1） | 在示範程式裡不需要 | 需要 |
+| 邊緣之外的顏色（問題 2） | 不需要 | `backing=` |
+| 讓內容進到頂端列下面（問題 4） | 仍要自己安排 | 仍要自己安排；`on_height=` 可以幫忙 |
+| 模糊的數值 | `blur(N px)`：N 是標準差 | `blur=R`：擴散範圍相當於 CSS 的 `blur(R/2)` |
+| 其他語言 | 任何語言（它只是 CSS） | Python；同樣的呼叫在 C、Rust、Vala 和 JavaScript 裡都有 |
+
+關於數值：在 GTK 4.22 上測得，CSS 的 `blur(20px)` 把一條清晰的邊界變成 48 px 的過渡，這裡
+的 `blur=22` 則是 26 px。所以 CSS 的 `blur(11px)` 相當於 `blur=22`，`blur(19px)` 相當於
+`blur=38`。
+
+應用程式也可以在執行時選擇：`Gtk.get_minor_version() >= 22` 時用 CSS，否則用 `GlassOverlay`。
+
 ## 它是什麼，不是什麼
 
 人們說的「磨砂玻璃」有兩種：
@@ -57,8 +97,8 @@ overlay.add_glass(pill, radius=18, blur=22)
 | **應用程式內的玻璃**（本儲存庫） | 列下面應用程式自己的內容 | 應用程式自己，用 GTK | GNOME、KDE，任何桌面 |
 | **視窗玻璃** | 應用程式背後的桌面和其他視窗 | 合成器 | 只有具備模糊協定的合成器（KWin）；GNOME Shell 不行 |
 
-GTK 的 CSS 沒有 `backdrop-filter`，所以只用半透明背景得到的是一條透明的列，而不是磨砂的
-列。模糊必須自己畫。GTK 的場景圖（GSK）有模糊節點，有它就夠了。
+在 GTK 4.22 之前，GTK 的 CSS 沒有 `backdrop-filter`，所以只用半透明背景得到的是一條透明
+的列，而不是磨砂的列。模糊必須自己畫。GTK 的場景圖（GSK）有模糊節點，有它就夠了。
 
 ## 原理
 
@@ -92,7 +132,8 @@ def do_snapshot(self, snap):
 
 ## 四個會出問題的地方
 
-這些都是在寫 Inkpad 的版本時遇到的。`glass.py` 和 `demo.py` 已經逐一處理。
+這些都是在寫 Inkpad 的版本時遇到的。`glass.py` 和 `demo.py` 已經逐一處理。問題 1 到 3
+屬於 `GlassOverlay`；問題 4 用 CSS 的 `backdrop-filter` 時同樣存在。
 
 ### 1. 被模糊的那一層有洞，看起來像一塊平平的灰色
 
@@ -182,5 +223,9 @@ texture.save_to_png('window.png')
 
 著作權所有 © 2026 Inkpad 作者。
 
-自由軟體，採用 [GNU 通用公共授權條款第 3 版](LICENSE)或（由你選擇）任何更新的版本，與這些
-程式碼的來源 Inkpad 相同。
+以 [MIT 授權條款](LICENSE)釋出：可以用在任何專案裡，無論自由軟體還是專有軟體，只要保留著作權
+和授權聲明。
+
+這些程式碼來自 [Inkpad](https://github.com/LoveProgramming-cc/Inkpad-gnome)。Inkpad 整體採用
+GNU GPL 第 3 版或更新版本；它的授權為磨砂玻璃部分（`inkpad/glass.py`）設了例外：作者同時
+以 MIT 授權條款在這裡提供這一部分。

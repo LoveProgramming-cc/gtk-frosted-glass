@@ -2,6 +2,7 @@
 """A window with a frosted bar across the top and a frosted pill, over a scrolling grid.
 
     python3 demo.py                 # run it; scroll the grid under the bar
+    python3 demo.py --native        # the same with GTK's own backdrop-filter (GTK 4.22 and later)
     python3 demo.py --png out.png   # draw the window to a PNG and quit (for checking)
 """
 import colorsys
@@ -32,6 +33,9 @@ CSS = """
   padding: 5px 7px;
   box-shadow: 0 6px 20px alpha(black, 0.10), 0 1px 3px alpha(black, 0.12), 0 0 0 1px alpha(black, 0.05);
 }
+/* GTK 4.22 and later can do it alone. A CSS blur of N px spreads like a GSK blur of 2N. */
+.native.bar { backdrop-filter: blur(19px); }
+.native.pill { backdrop-filter: blur(11px); }
 .tile { border-radius: 10px; min-width: 150px; min-height: 190px; }
 """
 
@@ -52,7 +56,7 @@ def tiles():
     return flow, '\n'.join(rules)
 
 
-def build(app):
+def build(app, native=False):
     flow, tile_css = tiles()
     provider = Gtk.CssProvider()
     provider.load_from_string(CSS + tile_css)
@@ -61,7 +65,7 @@ def build(app):
 
     scroller = Gtk.ScrolledWindow(child=flow, hscrollbar_policy=Gtk.PolicyType.NEVER)
     scroller.add_css_class('under')
-    overlay = GlassOverlay(child=scroller, backing='view_bg_color')
+    overlay = Gtk.Overlay(child=scroller) if native else GlassOverlay(child=scroller, backing='view_bg_color')
 
     # A bar across the top. It is in the overlay, not above the list, so the list goes under it.
     bar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.START)
@@ -71,7 +75,12 @@ def build(app):
     title.add_css_class('title')
     bar.append(title)
     # The list starts below the bar, however tall the bar turns out to be.
-    overlay.add_glass(bar, radius=0, blur=38, on_height=lambda h: flow.set_margin_top(int(h) + 10))
+    if native:
+        bar.add_css_class('native')
+        overlay.add_overlay(bar)
+        flow.set_margin_top(bar.measure(Gtk.Orientation.VERTICAL, -1)[1] + 10)
+    else:
+        overlay.add_glass(bar, radius=0, blur=38, on_height=lambda h: flow.set_margin_top(int(h) + 10))
 
     # A small pill floating at the bottom.
     pill = Gtk.Box(halign=Gtk.Align.CENTER, valign=Gtk.Align.END, margin_bottom=18, spacing=2)
@@ -80,7 +89,11 @@ def build(app):
         button = Gtk.Button(icon_name=name)
         button.add_css_class('flat')
         pill.append(button)
-    overlay.add_glass(pill, radius=18, blur=22)
+    if native:
+        pill.add_css_class('native')
+        overlay.add_overlay(pill)
+    else:
+        overlay.add_glass(pill, radius=18, blur=22)
 
     window = Adw.ApplicationWindow(application=app, default_width=900, default_height=640, title='Frosted glass')
     window.set_content(overlay)
@@ -105,11 +118,13 @@ def save_png(window, scroller, path, app):
 
 
 def main():
-    png = sys.argv[2] if len(sys.argv) > 2 and sys.argv[1] == '--png' else None
+    args = sys.argv[1:]
+    native = '--native' in args
+    png = args[args.index('--png') + 1] if '--png' in args else None
     app = Adw.Application(application_id='io.github.frostedglass.Demo')
 
     def activate(app):
-        window, scroller = build(app)
+        window, scroller = build(app, native)
         if png:
             save_png(window, scroller, png, app)
 

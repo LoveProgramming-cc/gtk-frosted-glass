@@ -1,6 +1,8 @@
 """Frosted glass for GTK 4: bars that float over a view show it blurred through them.
 
-GTK's CSS has no backdrop-filter, so the overlay that holds the bars draws it:
+GTK 4.22 and later can do this alone, with the CSS property backdrop-filter; this
+is for apps that also have to run on older GTK 4, whose CSS has none. The overlay
+that holds the bars draws the glass:
 the view underneath is recorded once as a render node, and drawn a second time,
 blurred and clipped to the bar's shape, behind each bar added as glass. The
 bar's own translucent CSS background is the wash over the blur.
@@ -8,7 +10,7 @@ bar's own translucent CSS background is the wash over the blur.
     overlay = GlassOverlay(child=scrolled_view, backing='view_bg_color')
     overlay.add_glass(pill, radius=18, blur=22)
 
-Copyright © 2026 the Inkpad authors. GPL-3.0-or-later; see LICENSE.
+Copyright © 2026 the Inkpad authors. MIT licence; see LICENSE.
 """
 from gi.repository import GLib, Graphene, Gsk, Gtk
 
